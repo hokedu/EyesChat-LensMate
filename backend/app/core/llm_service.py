@@ -26,16 +26,21 @@ Rules:
 
 TOKEN_EST_CJK = 2
 TOKEN_EST_OTHER = 0.5
-MODEL_COST = {
-    "gpt-4o": {"input": 0.0025, "output": 0.01},
-    "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
-    "deepseek-chat": {"input": 0.0005, "output": 0.002},
-    "Qwen/Qwen3-VL-8B-Instruct": {"input": 0.0005, "output": 0.001},
-    "Qwen/Qwen3-VL-30B-A3B-Instruct": {"input": 0.0007, "output": 0.0014},
-    "Qwen/Qwen3-VL-32B-Instruct": {"input": 0.001, "output": 0.002},
-    "default": {"input": 0.001, "output": 0.002},
+
+# SiliconFlow actual pricing:
+# Qwen3-VL-8B-Instruct: FREE (for now, limited offer)
+# Qwen3-VL-30B-A3B-Instruct: ¥0.5 / 1M tokens
+# Qwen3-VL-32B-Instruct: ¥1 / 1M tokens
+# GPT-4o: $2.5 / 1M input, $10 / 1M output
+MODEL_COST_PER_MILLION = {  # per 1M tokens, USD
+    "gpt-4o": 2.5,
+    "gpt-4o-mini": 0.15,
+    "Qwen/Qwen3-VL-8B-Instruct": 0.01,  # essentially free
+    "Qwen/Qwen3-VL-30B-A3B-Instruct": 0.07,
+    "Qwen/Qwen3-VL-32B-Instruct": 0.14,
+    "deepseek-chat": 0.10,
+    "default": 0.50,
 }
-TTS_COST_PER_CHAR = 0.000015
 
 
 def estimate_tokens(text: str) -> int:
@@ -48,22 +53,18 @@ def estimate_frame_tokens(width: int = 320, height: int = 240) -> int:
     return 85 + (width // 32) * (height // 32) * 2
 
 
-def estimate_llm_cost(input_tokens: int, output_tokens: int, model: str = "gpt-4o") -> float:
-    costs = MODEL_COST.get(model, MODEL_COST["default"])
-    return round((input_tokens / 1000) * costs["input"] + (output_tokens / 1000) * costs["output"], 6)
-
-
-def estimate_tts_cost(text: str) -> float:
-    return round(len(text) * TTS_COST_PER_CHAR, 6)
+def estimate_cost(total_tokens: int, model: str = "gpt-4o") -> float:
+    """Estimate cost from total tokens. Simple model: cost_per_million * tokens / 1M."""
+    cost_per_m = MODEL_COST_PER_MILLION.get(model, MODEL_COST_PER_MILLION["default"])
+    return round((total_tokens / 1_000_000) * cost_per_m, 8)
 
 
 # Models known to support vision/image input
 VISION_MODELS = {
     "gpt-4o", "gpt-4o-mini", "gpt-4", "gpt-4-vision",
     "claude-3-opus", "claude-3-sonnet", "claude-3-haiku",
-    "qwen-vl", "qwen3-vl", "qwen2.5-vl",  # Qwen vision models (prefix match)
+    "qwen-vl", "qwen3-vl", "qwen2.5-vl",
 }
-# Models known to support TTS
 TTS_MODELS = {"tts-1", "tts-1-hd"}
 
 
@@ -88,7 +89,6 @@ class LLMService:
         client_kwargs = {"api_key": settings.openai_api_key or "sk-placeholder"}
         if settings.openai_base_url:
             client_kwargs["base_url"] = settings.openai_base_url
-            logger.info("Using custom base URL: %s", settings.openai_base_url)
         self.client = AsyncOpenAI(**client_kwargs)
         self.model = settings.llm_model
         self._vision = supports_vision(self.model)
@@ -105,21 +105,19 @@ class LLMService:
     ) -> AsyncGenerator[dict, None]:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         if history:
-            messages.extend(history)
+            # Only keep last 5 turns to avoid token bloat
+            messages.extend(history[-10:])
 
         user_content: list[dict] = []
 
         if scene_summary:
             user_content.append({"type": "text", "text": f"[Current scene: {scene_summary}]"})
 
-        # Attach image for vision models
         if self._vision and frame_base64:
             user_content.append({
                 "type": "image_url",
                 "image_url": {"url": f"data:image/jpeg;base64,{frame_base64}"},
             })
-        elif not self._vision and frame_base64 and not scene_summary:
-            user_content.append({"type": "text", "text": "[User is showing their camera feed but I cannot see it directly. Rely on their description.]"})
 
         if privacy_mode:
             user_content.append({"type": "text", "text": "[Privacy mode is ON.]"})
@@ -127,14 +125,12 @@ class LLMService:
         user_content.append({"type": "text", "text": user_text})
         messages.append({"role": "user", "content": user_content})
 
-        # Estimate tokens
+        # Estimate input
         input_tokens = estimate_tokens(SYSTEM_PROMPT)
-        for m in history or []:
+        for m in history[-10:] if history else []:
             if isinstance(m.get("content"), str):
-                input_tokens += estimate_tokens(m["content"])
+                input_tokens += estimate_tokens(m.get("content", ""))
         input_tokens += estimate_tokens(user_text)
-        if scene_summary:
-            input_tokens += estimate_tokens(scene_summary)
         if frame_base64 and self._vision:
             input_tokens += estimate_frame_tokens()
 
@@ -144,7 +140,7 @@ class LLMService:
                 model=self.model,
                 messages=messages,
                 stream=True,
-                max_tokens=300,
+                max_tokens=200,
             )
             async for chunk in stream:
                 if chunk.choices:
@@ -159,17 +155,15 @@ class LLMService:
             return
 
         output_tokens = estimate_tokens(full_response)
-        llm_cost = estimate_llm_cost(input_tokens, output_tokens, self.model)
-        tts_cost = estimate_tts_cost(full_response)
+        total_tokens = input_tokens + output_tokens
+        cost = estimate_cost(total_tokens, self.model)
         yield {
             "type": "meta",
             "content": json.dumps({
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
-                "total_tokens": input_tokens + output_tokens,
-                "estimated_cost_usd": round(llm_cost + tts_cost, 6),
-                "llm_cost_usd": llm_cost,
-                "tts_cost_usd": tts_cost,
+                "total_tokens": total_tokens,
+                "estimated_cost_usd": cost,
                 "model": self.model,
                 "vision_supported": self._vision,
             }),

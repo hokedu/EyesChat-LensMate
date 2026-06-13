@@ -122,7 +122,7 @@ function cn(){
   cB.textContent="连接中...";cB.disabled=true
   S.ws=new WebSocket(U)
   S.ws.onopen=()=>{
-    S.co=true;cB.textContent="断开连接";cB.disabled=false
+    S.co=true;cB.textContent="断开连接";cB.disabled=false;if(S.ca&&v.videoWidth)startFrames()
     sD.className="dot";sS.textContent="已连接";sB.disabled=false
     sys("已连接到 EyesChat-LensMate 服务。")
     gs()

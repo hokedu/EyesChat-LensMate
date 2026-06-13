@@ -1,10 +1,8 @@
 """EyesChat-LensMate backend entry point."""
 import logging
 import os
-import socket
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from .core.config import settings
 from .routers import ws
@@ -21,6 +19,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend")
+logger.info("Frontend dir: %s (exists=%s)", frontend_dir, os.path.isdir(frontend_dir))
+
+if os.path.isdir(frontend_dir):
+    # Serve static assets (JS, CSS, images)
+    import stat
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
 
 
 @app.get("/health")
@@ -39,16 +46,24 @@ async def get_config():
 
 @app.get("/favicon.ico")
 async def favicon():
-    fav_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend", "favicon.ico")
-    if os.path.isfile(fav_path):
-        return FileResponse(fav_path)
     from fastapi.responses import Response
     return Response(status_code=204)
 
 
+# Register WebSocket router BEFORE catch-all
 app.include_router(ws.router)
 
-frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend")
-if os.path.isdir(frontend_dir):
-    app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
-    logger.info("Frontend mounted from: %s", frontend_dir)
+
+@app.get("/{path:path}")
+async def serve_frontend(path: str):
+    """Serve frontend SPA - all non-API routes return index.html."""
+    if os.path.isdir(frontend_dir):
+        full_path = os.path.join(frontend_dir, path)
+        # If file exists and matches a MIME type, serve it
+        if os.path.isfile(full_path) and not path.startswith("ws/"):
+            return FileResponse(full_path)
+        # SPA fallback - return index.html for all routes
+        index_path = os.path.join(frontend_dir, "index.html")
+        if os.path.isfile(index_path):
+            return FileResponse(index_path)
+    return {"detail": "Frontend not found", "path": path}, 404

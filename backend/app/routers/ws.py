@@ -45,11 +45,12 @@ async def websocket_chat(websocket: WebSocket):
             msg_type = data.get("type", "")
 
             if msg_type == "frame":
-                session_manager.push_frame(session_id, data.get("base64", ""))
+                frame_data = data.get("base64", "")
+                logger.info("Frame received: %d bytes b64, session: %s", len(frame_data), session_id[:8])
+                session_manager.push_frame(session_id, frame_data)
                 await websocket.send_json({
                     "type": "frame_ack",
                     "frame_count": len(session.frame_history),
-                    "scene_summary": session.current_scene_summary,
                 })
 
             elif msg_type == "transcript":
@@ -57,15 +58,10 @@ async def websocket_chat(websocket: WebSocket):
                 if not user_text.strip():
                     continue
 
-                if session.is_ai_speaking:
-                    session_manager.interrupt_ai(session_id)
-                    await websocket.send_json({"type": "interrupt_ack"})
-                    await asyncio.sleep(0.1)
-
                 if not session_manager.can_add_turn(session_id):
                     await websocket.send_json({
                         "type": "budget_exhausted",
-                        "message": "会话预算已用完，请开始新的对话。",
+                        "message": "session budget used up, please start a new conversation.",
                     })
                     continue
 
@@ -73,7 +69,6 @@ async def websocket_chat(websocket: WebSocket):
 
                 history = session_manager.build_context(session_id)
                 latest_frame = None
-                scene_summary = session.current_scene_summary
                 if session.frame_history:
                     latest_frame = session.frame_history[-1].base64
 
@@ -81,7 +76,7 @@ async def websocket_chat(websocket: WebSocket):
                 async for chunk in llm_service.chat_with_vision(
                     user_text=user_text,
                     frame_base64=latest_frame,
-                    scene_summary=scene_summary,
+                    scene_summary=session.current_scene_summary,
                     history=history,
                     privacy_mode=session.privacy_mode,
                 ):
@@ -116,10 +111,7 @@ async def websocket_chat(websocket: WebSocket):
             elif msg_type == "set_privacy":
                 enabled = data.get("enabled", True)
                 session_manager.set_privacy_mode(session_id, enabled)
-                await websocket.send_json({
-                    "type": "privacy_ack",
-                    "enabled": enabled,
-                })
+                await websocket.send_json({"type": "privacy_ack", "enabled": enabled})
 
             elif msg_type == "interrupt":
                 session_manager.interrupt_ai(session_id)
