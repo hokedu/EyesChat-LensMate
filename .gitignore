@@ -28,3 +28,4 @@ Thumbs.db
 test_*.py
 tv*.py
 tw.py
+backend/*.txt
