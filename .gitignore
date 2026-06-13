@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Secrets - NEVER commit real API keys
+.env
+*.key
+*.pem
+
+# Server logs
+server_out.txt
+server_err.txt
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp test files
+test_*.py
+tv*.py
+tw.py
