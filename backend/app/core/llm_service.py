@@ -1,4 +1,4 @@
-"""Multi-modal LLM service with TTS, cost estimation, and scene analysis."""
+﻿"""Multi-modal LLM service with TTS, cost estimation, and scene analysis."""
 import json
 import base64
 import logging
@@ -49,7 +49,7 @@ def estimate_tokens(text: str) -> int:
     return int(cjk * TOKEN_EST_CJK + other * TOKEN_EST_OTHER)
 
 
-def estimate_frame_tokens(width: int = 320, height: int = 240) -> int:
+def estimate_frame_tokens(width: int = 640, height: int = 480) -> int:
     return 85 + (width // 32) * (height // 32) * 2
 
 
