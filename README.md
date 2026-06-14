@@ -17,7 +17,7 @@
 
 ## Demo 视频
 
-> [📺 观看演示视频](TODO)（待上传，完成后替换此链接）
+> [📺 观看演示视频](https://www.bilibili.com/video/BV1n9JA6aEQz/)（待上传，完成后替换此链接）
 
 ## 用户故事
 
