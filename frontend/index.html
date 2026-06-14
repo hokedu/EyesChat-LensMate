@@ -29,7 +29,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .vo .fps{font-size:10px;color:var(--t2)}
 .fq{font-size:10px;color:var(--t2);display:flex;align-items:center;gap:5px}
 .fq .d{width:5px;height:5px;border-radius:50%;display:inline-block}
-.fq .d.h{background:var(--gr)}.fq .d.m{background:var(--or)}.fq .d.l{background:var(--rd)}
+.fq .d.high{background:var(--gr)}.fq .d.med{background:var(--or)}.fq .d.low{background:var(--rd)}
 .cp{flex:1;min-width:340px;display:flex;flex-direction:column}
 .ch{padding:10px 20px;border-bottom:1px solid var(--b2);display:flex;justify-content:space-between;font-size:12px;color:var(--t2)}
 .cm{flex:1;overflow-y:auto;padding:14px 20px}
@@ -80,7 +80,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <button id="camB" onclick="tCam()" title="摄像头">📷</button>
 <button id="micB" onclick="tMic()" title="麦克风">🎤</button>
 <span class="fps" id="fps">- fps</span>
-<div class="fq"><span class="d h" id="qD"></span><span id="qL">高</span></div>
+<div class="fq"><span class="d high" id="qD"></span><span id="qL">高</span></div>
 </div>
 </div>
 </div>
