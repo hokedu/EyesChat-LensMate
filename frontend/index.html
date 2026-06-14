@@ -244,9 +244,9 @@ function startFrames(){
   let lastTime=0
   S.fi=setInterval(()=>{
     if(!S.co||!S.ca||!v.videoWidth)return
-    const c=document.createElement("canvas");c.width=320;c.height=240
-    const ctx=c.getContext("2d");ctx.drawImage(v,0,0,320,240)
-    const b64=c.toDataURL("image/jpeg",0.6).split(",")[1]
+    const c=document.createElement("canvas");c.width=640;c.height=480
+    const ctx=c.getContext("2d");ctx.drawImage(v,0,0,640,480)
+    const b64=c.toDataURL("image/jpeg",0.85).split(",")[1]
     ws({type:"frame",base64:b64})
     const now=Date.now()
     fps.textContent=lastTime?Math.round(1000/(now-lastTime))+" fps":"- fps"

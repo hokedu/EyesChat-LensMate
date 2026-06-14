@@ -1,4 +1,4 @@
-"""EyesChat-LensMate config."""
+﻿"""EyesChat-LensMate config."""
 import os
 from pathlib import Path
 from pydantic_settings import BaseSettings
@@ -28,10 +28,10 @@ class Settings(BaseSettings):
 
     # Frame strategy
     frame_change_threshold: float = 0.15
-    frame_quality_default: float = 0.6
-    frame_quality_low: float = 0.4
-    frame_width: int = 320
-    frame_height: int = 240
+    frame_quality_default: float = 0.85
+    frame_quality_low: float = 0.6
+    frame_width: int = 640
+    frame_height: int = 480
 
     # WebSocket
     ws_ping_interval: int = 25
